@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Advanced MP3 Player</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #121212;
+      color: white;
+      font-family: sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .album-art {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-height: 60vh;
+  width: 100%;
+  margin-bottom: 200px;
+}
+
+.album-art img {
+  width: 100%;
+  max-width: 350px;
+  height: auto;
+  border-radius: 16px;
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.6);
+}
+
+.lyrics-overlay {
+  position: absolute;
+  bottom: 20px;
+  width: 100%;
+  text-align: center;
+  color: white;
+  font-size: 1.1rem;
+  text-shadow: 0 0 10px #000;
+  padding: 0 10px;
+}
+
+    .player {
+      width: 100vw;
+      background: #1f1f1f;
+      padding: 20px;
+      border-top-left-radius: 16px;
+      border-top-right-radius: 16px;
+      box-shadow: 0 -2px 15px rgba(0, 0, 0, 0.6);
+      position: fixed;
+      bottom: 0;
+      left: 0;
+    }
+
+    .player h2 {
+      text-align: center;
+      margin: 0 0 10px 0;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 15px;
+    }
+
+    .controls button {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 28px;
+      cursor: pointer;
+      padding: 10px;
+    }
+
+    .seek-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+
+    .seek-container span {
+      font-size: 14px;
+      color: #aaa;
+      width: 40px;
+      text-align: center;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      margin: 0 10px;
+      height: 6px;
+      background: linear-gradient(to right, #1db954 0%, #444 0%);
+      border-radius: 3px;
+      -webkit-appearance: none;
+      appearance: none;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb,
+    input[type="range"]::-moz-range-thumb {
+      height: 0;
+      width: 0;
+      background: transparent;
+      border: none;
+      -webkit-appearance: none;
+    }
+
+    audio {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="album-art">
+  <img src="album.jpeg" alt="Album Art" />
+  <div id="lyrics" class="lyrics-overlay"></div>
+</div>
+
+  <div class="player">
+    <h2 id="song-title">Song 1</h2>
+    <audio id="audio" src="song1.mp3"></audio>
+
+    <div class="seek-container">
+      <span id="current-time">0:00</span>
+      <input type="range" id="seek" value="0" min="0" step="1">
+      <span id="duration">0:00</span>
+    </div>
+
+    <div class="controls">
+      <button id="prev">⏮️</button>
+      <button id="play-pause">▶️</button>
+      <button id="next">⏭️</button>
+    </div>
+  </div>
+
+  <script>
+    const audio = document.getElementById('audio');
+    const playPauseBtn = document.getElementById('play-pause');
+    const seek = document.getElementById('seek');
+    const currentTimeEl = document.getElementById('current-time');
+    const durationEl = document.getElementById('duration');
+    const songTitle = document.getElementById('song-title');
+    const songs = ["song1.mp3", "song2.mp3", "song3.mp3"];
+    let songIndex = 0;
+    let userPressedPlay = false;
+    
+    //lyrics fetching start
+    let lyricsData = [];
+let lyricsContainer = document.getElementById('lyrics');
+
+// Fetch and parse LRC file
+fetch('song1.lrc')
+  .then(response => response.text())
+  .then(text => {
+    const lines = text.split('\n');
+    for (let line of lines) {
+      const match = line.match(/(\d+):(\d+(\.\d+)?)(.*)/);
+      if (match) {
+        const minutes = parseInt(match[1]);
+        const seconds = parseFloat(match[2]);
+        const time = minutes * 60 + seconds;
+        const text = match[4].trim();
+        lyricsData.push({ time, text });
+      }
+    }
+    lyricsData.sort((a, b) => a.time - b.time);
+  });
+
+// Update lyrics with audio time
+audio.addEventListener('timeupdate', () => {
+  const currentTime = audio.currentTime;
+  for (let i = lyricsData.length - 1; i >= 0; i--) {
+    if (currentTime >= lyricsData[i].time) {
+      lyricsContainer.textContent = lyricsData[i].text;
+      break;
+    }
+  }
+});
+    //lyrics fetching ends
+
+    function formatTime(sec) {
+      let m = Math.floor(sec / 60);
+      let s = Math.floor(sec % 60);
+      return `${m}:${s < 10 ? '0' + s : s}`;
+    }
+
+    function loadSong(index, autoPlay = false) {
+      audio.src = songs[index];
+      songTitle.textContent = "Song " + (index + 1);
+      seek.value = 0;
+      if (autoPlay) {
+        audio.play();
+        playPauseBtn.textContent = "⏸️";
+      } else {
+        playPauseBtn.textContent = "▶️";
+      }
+    }
+
+    function updateSeekBar() {
+      if (!isNaN(audio.duration)) {
+        seek.max = Math.floor(audio.duration);
+        seek.value = Math.floor(audio.currentTime);
+        currentTimeEl.textContent = formatTime(audio.currentTime);
+        durationEl.textContent = formatTime(audio.duration);
+        const percent = (audio.currentTime / audio.duration) * 100;
+        seek.style.background = `linear-gradient(to right, #1db954 ${percent}%, #444 ${percent}%)`;
+      }
+    }
+
+    playPauseBtn.onclick = () => {
+      if (audio.paused) {
+        audio.play();
+        playPauseBtn.textContent = "⏸️";
+        userPressedPlay = true;
+      } else {
+        audio.pause();
+        playPauseBtn.textContent = "▶️";
+      }
+    };
+
+    document.getElementById('next').onclick = () => {
+      songIndex = (songIndex + 1) % songs.length;
+      loadSong(songIndex, true);
+    };
+
+    document.getElementById('prev').onclick = () => {
+      songIndex = (songIndex - 1 + songs.length) % songs.length;
+      loadSong(songIndex, true);
+    };
+
+    audio.ontimeupdate = updateSeekBar;
+    seek.oninput = () => audio.currentTime = seek.value;
+    audio.onloadedmetadata = updateSeekBar;
+    audio.onended = () => {
+      songIndex = (songIndex + 1) % songs.length;
+      loadSong(songIndex, true);
+    };
+
+    loadSong(songIndex, false);
+  </script>
+</body>
+</html>
